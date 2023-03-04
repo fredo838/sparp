@@ -1,0 +1,9 @@
+[project]
+name = "sparp"
+description = "Simple Parallel Async Requests Python"
+requires-python = ">3.5"
+version = "1.0.0"
+dependencies = [
+    "asyncio",
+    "aiohttp"
+]
