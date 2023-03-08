@@ -1,1 +1,1 @@
-__all__ = ["sparpp"]
+from .src.sparp import sparpp
