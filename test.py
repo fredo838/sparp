@@ -1,4 +1,4 @@
-from src.sparp import request_parallel
+from src import sparp
 
 
 def construct_configs():
@@ -14,11 +14,11 @@ def construct_configs():
 
 def test():
     configs = construct_configs()
-    results = request_parallel(
+    results = sparp.sparp(
         configs,
-        max_outstanding_requests=20,
+        max_outstanding_requests=200,
         ok_status_codes=[200],
-        stop_on_not_ok=True
+        stop_on_first_fail=True
     )
     status_codes = [result.status for result in results if result is not None]
     print(status_codes)
