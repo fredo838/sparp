@@ -1,1 +1,1 @@
-# from .mymodule.sparp import sparpp
+from .sparp import sparpp
