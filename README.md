@@ -2,7 +2,7 @@
 `sparp` stands for *Simple Parallel Asynchronous Requests in Python*
 
 ### Installation
-```python3
+```bash
 python3 -m pip install python3 -m pip install git+https://github.com/fredo838/sparp.git
 ```
 
