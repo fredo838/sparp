@@ -1,4 +1,4 @@
-from src import sparp
+from src.sparp import sparpp
 
 
 def construct_configs():
@@ -14,7 +14,7 @@ def construct_configs():
 
 def test():
     configs = construct_configs()
-    results = sparp.sparp(
+    results = sparp_.sparp(
         configs,
         max_outstanding_requests=200,
         ok_status_codes=[200],
