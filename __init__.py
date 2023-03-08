@@ -1,1 +1,2 @@
-from src.sparp import sparpp
+from .src.sparp import sparpp
+__all__ = []
