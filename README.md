@@ -1,7 +1,7 @@
 # Documentation
 `sparp` stands for *Simple Parallel Asynchronous Requests in Python*
 ### Purpose
-Find `async` or `await`confusing, and just want to process a list of requests? Then this 
+Find `async` or `await` confusing, and just want to process a list of requests? Then this 
 is the package for you. 
 ### Installation
 ```bash
