@@ -2,12 +2,12 @@
 `sparp` stands for *Simple Parallel Asynchronous Requests in Python*
 
 ### Installation
-```
+```python3
 python3 -m pip install python3 -m pip install git+https://github.com/fredo838/sparp.git
 ```
 
 ### Reference
-```
+```python3
 import sparp
 configs = []
 for _ in range(10000):
