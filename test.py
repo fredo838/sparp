@@ -3,7 +3,7 @@ from src import sparp
 
 def construct_configs():
     configs = []
-    for _ in range(300):
+    for _ in range(10000):
         configs.append({
             'method': 'get',
             'url': 'https://www.google.com',

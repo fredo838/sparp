@@ -1,1 +1,1 @@
-from src.sparp import request_parallel
+from sparp import sparp
