@@ -93,7 +93,7 @@ async def updater(shared):
 
 
 async def async_main(source_queue, shared, max_outstanding_requests, ok_status_codes, stop_on_first_fail):
-    async with aiohttp.ClientSession(headers={}) as session:
+    async with aiohttp.ClientSession(skip_auto_headers=["Content-Type"]) as session:
         coros = [updater(shared)] + [consumer(source_queue, session, shared, ok_status_codes, stop_on_first_fail)
                                      for _ in range(max_outstanding_requests)]
         results = await asyncio.gather(*coros)
