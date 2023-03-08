@@ -1,1 +1,1 @@
-from src.sparp import sparpp
+from sparp.src.sparp import sparpp
