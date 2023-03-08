@@ -107,7 +107,18 @@ async def fill_queue(queue, items):
     return queue
 
 
-def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False):
+def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False) -> List:
+    """Simple Parallel Asynchronous Requests in Python
+
+    Arguments:
+      configs (List[Dict]): the request configurations. Each item in this list is fed roughly as such: [requests.request(**config) for config in configs]
+      max_outstanding_requests (int): max number of parallel requests alive at the same time
+      ok_status_codes (List[int]): list of status codes deemed "success"
+      stop_on_first_fail (bool): whether or not to stop sending requests if we get a status not in stop_on_first_fail
+    
+    Returns:
+      List: list of Responses
+    """
     source_queue = asyncio.Queue()
     source_queue = asyncio.run(fill_queue(source_queue, configs))
     shared = SharedMemory(total=len(configs))
