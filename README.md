@@ -26,6 +26,9 @@ print(time.time() - start_time)
 results = sparp.sparp(configs, 
   max_outstanding_requests = 1000, # max number of concurrent requests alive at the same time
   ok_status_codes=[200],  # status codes that are deemed "success"
-  stop_on_first_fail=False  # wether to stop and return (not error) when a "failed" response is encountered
+  stop_on_first_fail=False,  # wether to stop and return (not error) when a "failed" response is encountered
+  disable_bar=False,  # do not print anything
+  attempts=1,  # number of times to try the request (must be at least 1)
+  retry_status_codes=[429]  # status codes to attempt a retry on
 )
 ```

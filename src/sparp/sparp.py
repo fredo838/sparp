@@ -143,7 +143,7 @@ async def fill_queue(queue, items):
     return queue
 
 
-def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, retry_attempts: int = 1, retry_status_codes=[]) -> List:
+def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
     """Simple Parallel Asynchronous Requests in Python
 
     Arguments:
@@ -152,14 +152,17 @@ def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[2
       ok_status_codes (List[int]): list of status codes deemed "success"
       stop_on_first_fail (bool): whether or not to stop sending requests if we get a status not in stop_on_first_fail
       disable_bar (bool): do not print anything
-      retry_attempts (int): number of times to retry with exponential backoff
+      attempts (int): number of times to try (at least 1)
+      retry_status_codes (List[int]): status codes to retry
 
     Returns:
       List: list of Responses
     """
+    if attempts < 1:
+        raise ValueError("attempts should be at least 1")
     source_queue = asyncio.Queue()
     source_queue = asyncio.run(fill_queue(source_queue, configs))
     shared = SharedMemory(total=len(configs), disable_bar=disable_bar)
     result = asyncio.run(async_main(source_queue, shared,
-                         max_outstanding_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes))
+                         max_outstanding_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
     return result
