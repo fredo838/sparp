@@ -107,7 +107,7 @@ async def fill_queue(queue, items):
     return queue
 
 
-def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False):
+def sparpp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False):
     source_queue = asyncio.Queue()
     source_queue = asyncio.run(fill_queue(source_queue, configs))
     shared = SharedMemory(total=len(configs))
