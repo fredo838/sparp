@@ -15,7 +15,7 @@ configs = [{'method': 'get', 'url': 'https://www.google.com'} for _ in range(100
 results = sparp.sparp(configs, max_outstanding_requests=1000)
 print(results[0].keys())
 ## dict_keys(['text', 'status_code', 'json'])
-"""
+```
 
 ### Reference
 ```python3
