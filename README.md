@@ -11,10 +11,14 @@ python3 -m pip install python3 -m pip install git+https://github.com/fredo838/sp
 ### Simple example
 ```python3
 import sparp
+import time
 configs = [{'method': 'get', 'url': 'https://www.google.com'} for _ in range(10000)]
+start_time = time.time()
 results = sparp.sparp(configs, max_outstanding_requests=1000)
 print(results[0].keys())
 ## dict_keys(['text', 'status_code', 'json'])
+print(time.time() - start_time)
+## 17.99310803413391
 ```
 
 ### Reference
