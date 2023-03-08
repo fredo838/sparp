@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import aiohttp.client_exceptions
 import time
 from typing import Dict, List
 
@@ -70,8 +71,18 @@ async def consumer(source_queue, session, shared, ok_status_codes, stop_on_first
         except asyncio.QueueEmpty:
             break
         response = await session.request(**config)
-        # response = await asyncio.sleep(1)
-        if response.status in ok_status_codes:
+        response_text = await response.text()
+        status_code = response.status
+        try:
+            json_ = await response.json()
+        except Exception as e:
+            json_ = f"Failed to decode json due to {str(e)}"
+        response = {
+            "text": response_text,
+            "status_code": status_code,
+            "json": json_
+        }
+        if response["status_code"] in ok_status_codes:
             await shared.increment_success()
         else:
             await shared.increment_fail()
@@ -97,6 +108,7 @@ async def async_main(source_queue, shared, max_outstanding_requests, ok_status_c
         coros = [updater(shared)] + [consumer(source_queue, session, shared, ok_status_codes, stop_on_first_fail)
                                      for _ in range(max_outstanding_requests)]
         results = await asyncio.gather(*coros)
+
     results = [item for sublist in results[1:] for item in sublist]
     return results
 
@@ -115,7 +127,7 @@ def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[2
       max_outstanding_requests (int): max number of parallel requests alive at the same time
       ok_status_codes (List[int]): list of status codes deemed "success"
       stop_on_first_fail (bool): whether or not to stop sending requests if we get a status not in stop_on_first_fail
-    
+
     Returns:
       List: list of Responses
     """
