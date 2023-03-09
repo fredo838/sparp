@@ -215,5 +215,4 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
     asyncio.run(async_main(configs, source_queue, source_semaphore, sink_queue, shared,
                            max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
     results = asyncio.run(empty_full_queue(sink_queue))
-    print(len(results))
     return results
