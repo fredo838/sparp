@@ -21,7 +21,7 @@ print(results[0].keys())
 ```python3
 results = sparp.sparp(
   configs, # list of request configs. See below
-  max_outstanding_requests = 1000, # max number of concurrent requests alive at the same time. Set to len(configs) for max speed, setting it higher will only introduce unnecessary overhead.
+  max_outstanding_requests = 1000, # max number of concurrent requests alive at the same time. Should be in [0, len(configs)]. Using len(configs) guarantees you won't bottleneck the processing.
   time_between_requests = 0, # minimum amount of time between two requests
   ok_status_codes=[200],  # status codes that are deemed "success"
   stop_on_first_fail=False,  # wether to stop and return (not error) when a "failed" response is encountered
@@ -30,7 +30,6 @@ results = sparp.sparp(
   retry_status_codes=[429]  # status codes to attempt a retry on
 )
 ```
-
 ### Small print
 - each `config` in `configs` should be able to be passed to `aiohttp.ClientSession.request(**config)`
 - `configs` should preferably be a `list` of `dict`s, but you can also use a `generator`, so if you want to make your request
