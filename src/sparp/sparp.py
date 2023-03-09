@@ -8,10 +8,17 @@ import time
 from aiohttp import TraceConfig
 
 
+async def on_request_end(session, trace_config_ctx, params):
+    elapsed = asyncio.get_event_loop().time() - trace_config_ctx.start
+    params.response.elapsed = elapsed
+    # print("Request took {}".format(elapsed))
+
+
 async def on_request_start(session, trace_config_ctx, params) -> None:
     current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
     if current_attempt > 1:
         print(f"Retrying request, attempt number {current_attempt}")
+    trace_config_ctx.start = asyncio.get_event_loop().time()
 
 
 class SharedMemory:
@@ -118,7 +125,8 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
         response = {
             "text": response_text,
             "status_code": status_code,
-            "json": json_
+            "json": json_,
+            "elapsed": response.elapsed
         }
         await sink_queue.put(response)
         if response["status_code"] in ok_status_codes:
@@ -144,6 +152,7 @@ async def updater(shared):
 async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
     trace_config = TraceConfig()
     trace_config.on_request_start.append(on_request_start)
+    trace_config.on_request_end.append(on_request_end)
     retry_options = ExponentialRetry(
         attempts=retry_attempts,
         statuses=set(retry_status_codes),
