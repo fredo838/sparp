@@ -1,1 +1,1 @@
-from .sparp import sparp, DontCare
+from .sparp import sparp

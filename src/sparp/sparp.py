@@ -1,11 +1,9 @@
 import asyncio
 import aiohttp
 import aiohttp.client_exceptions
-import aiohttp_retry
 import time
-from typing import Dict, List
+from typing import Dict, List, Iterator
 from aiohttp_retry import RetryClient, ExponentialRetry
-import logging
 import time
 from aiohttp import TraceConfig
 
@@ -14,10 +12,6 @@ async def on_request_start(session, trace_config_ctx, params) -> None:
     current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
     if current_attempt > 1:
         print(f"Retrying request, attempt number {current_attempt}")
-
-
-class DontCare:
-    pass
 
 
 class SharedMemory:
@@ -97,19 +91,13 @@ async def canceler(shared, source_semaphore, n_consumers):
             break
 
 
-async def producer(items, source_queue, source_semaphore, max_request_speed, shared):
+async def producer(items, source_queue, source_semaphore, time_between_requests, shared):
     total = 0
-    if max_request_speed == DontCare:
-        interval = 0.
-    else:
-        interval = 1. / max_request_speed
-
     for item in items:
         total += 1
         await source_queue.put(item)
         source_semaphore.release()
-        await asyncio.sleep(interval)
-
+        await asyncio.sleep(time_between_requests)
     await shared.set_total(total)
 
 
@@ -153,7 +141,7 @@ async def updater(shared):
             break
 
 
-async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, max_request_speed, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
+async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
     trace_config = TraceConfig()
     trace_config.on_request_start.append(on_request_start)
     retry_options = ExponentialRetry(
@@ -172,7 +160,7 @@ async def async_main(configs, source_queue, source_semaphore, sink_queue, shared
                               ok_status_codes, stop_on_first_fail) for _ in range(max_outstanding_requests)]
         management_list = [
             updater(shared),
-            producer(configs, source_queue, source_semaphore, max_request_speed, shared),
+            producer(configs, source_queue, source_semaphore, time_between_requests, shared),
             canceler(shared, source_semaphore, max_outstanding_requests)
         ]
         coros = management_list + consumers
@@ -189,43 +177,36 @@ async def empty_full_queue(queue):
     return results
 
 
-def sparp(configs: List[Dict], max_outstanding_requests: int, max_request_speed: float, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[], quiet=False) -> List:
+def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
     """Simple Parallel Asynchronous Requests in Python
 
     Arguments:
       configs (List[Dict]): the request configurations. Each item in this list is fed roughly as such: [requests.request(**config) for config in configs]
       max_outstanding_requests (int): max number of parallel requests alive at the same time
-      max_request_speed (float): max requests / second
+      time_between_requests (float): minimum amount of time to wait before sending the next request
       ok_status_codes (List[int]): list of status codes deemed "success"
       stop_on_first_fail (bool): whether or not to stop sending requests if we get a status not in stop_on_first_fail
       disable_bar (bool): do not print anything
       attempts (int): number of times to try (at least 1)
       retry_status_codes (List[int]): status codes to retry
-      quiet (bool): whether or not to never print debug information
 
     Returns:
       List: list of Responses
     """
     if attempts < 1:
         raise ValueError("attempts should be at least 1")
-
     if hasattr(configs, '__len__'):
-        len_configs = len(configs)
-        total = len_configs
-        if max_outstanding_requests == DontCare:
-            max_outstanding_requests = len(configs)
+        total = len(configs)
     else:
         if not quiet:
             print("Setting max_outstanding requests to 100, this could be a bottleneck")
         total = -1
-        if max_outstanding_requests == DontCare:
-            max_outstanding_requests = 100
     source_queue = asyncio.Queue()
     source_semaphore = asyncio.Semaphore(0)
     sink_queue = asyncio.Queue()
     shared = SharedMemory(total=total, disable_bar=disable_bar)
     asyncio.run(async_main(configs, source_queue, source_semaphore, sink_queue, shared,
-                           max_outstanding_requests, max_request_speed, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
+                           max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
     results = asyncio.run(empty_full_queue(sink_queue))
     print(len(results))
     return results
