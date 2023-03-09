@@ -177,7 +177,7 @@ async def empty_full_queue(queue):
     return results
 
 
-def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
+def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
     """Simple Parallel Asynchronous Requests in Python
 
     Arguments:
@@ -198,8 +198,6 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
     if hasattr(configs, '__len__'):
         total = len(configs)
     else:
-        if not quiet:
-            print("Setting max_outstanding requests to 100, this could be a bottleneck")
         total = -1
     source_queue = asyncio.Queue()
     source_semaphore = asyncio.Semaphore(0)
