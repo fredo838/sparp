@@ -1,5 +1,5 @@
 # Documentation
-`sparp` stands for **S**imple *P**arallel **A**synchronous **R**equests in **P**ython
+`sparp` stands for _**S**imple **P**arallel **A**synchronous **R**equests in **P**ython_
 ### Purpose
 Find `async` or `await` confusing, and just want to process a list of requests? Then this 
 is the package for you. 
