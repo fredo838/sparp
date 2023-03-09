@@ -34,7 +34,7 @@ results = sparp.sparp(
 - each `config` in `configs` should be able to be passed to `aiohttp.ClientSession.request(**config)`
 - `configs` should preferably be a `list` of `dict`s, but you can also use a `generator`, so if you want to make your request
 as soon as you have created your `config`, you can.
-- `max_outstanding_requests` is a mandatory paramater, but what should you use? We create a `consumer coroutine` (read: `while loop that makes requests`) for every item in `range(max_outstanding_requests)`, so the ideal value is just above the "actual" max amount of requests that were active at the same time, but we don't know that beforehand. So rule of thumb:
-  - `100` is a good rule of thumb
-  - to be sure you wont bottleneck your application you can just use `len(configs)`, but know that this creates `len(configs)` coroutines that need to be scheduled to the event loop, so it should not be tooo much, let's say `<100000` as a general rule of thumb.
-  - if the `url` you call is slow, this
+- `max_outstanding_requests` is a mandatory paramater, but what should you use? We create a `consumer coroutine` (read: `while loop that makes requests`) for every item in `range(max_outstanding_requests)`, so the ideal value is just above the "actual" max amount of requests that will be active at the same time, but we don't know that beforehand. So rule of thumb:
+  - try `100`, if not fast enough, make it `1000`, still not fast enough use `len(configs)`. 
+  - using `len(configs)` ensures you wont bottleneck your application, but know that this creates `len(configs)` `coroutines` (so those `while loops`), so it should not be tooo much, let's say `<100000`.
+  - if the `url` you call cannot scale beyond `1000` requests, than using values higher that `1000` will only hurt performance
