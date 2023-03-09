@@ -23,7 +23,8 @@ print(time.time() - start_time)
 
 ### Reference
 ```python3
-results = sparp.sparp(configs, 
+results = sparp.sparp(
+  configs, # list of request configs. See below
   max_outstanding_requests = 1000, # max number of concurrent requests alive at the same time
   ok_status_codes=[200],  # status codes that are deemed "success"
   stop_on_first_fail=False,  # wether to stop and return (not error) when a "failed" response is encountered
@@ -32,3 +33,4 @@ results = sparp.sparp(configs,
   retry_status_codes=[429]  # status codes to attempt a retry on
 )
 ```
+The `configs` should look lik 

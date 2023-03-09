@@ -6,6 +6,7 @@ import time
 from typing import Dict, List
 from aiohttp_retry import RetryClient, ExponentialRetry
 import logging
+import time
 from aiohttp import TraceConfig
 
 
@@ -13,6 +14,10 @@ async def on_request_start(session, trace_config_ctx, params) -> None:
     current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
     if current_attempt > 1:
         print(f"Retrying request, attempt number {current_attempt}")
+
+
+class DontCare:
+    pass
 
 
 class SharedMemory:
@@ -61,6 +66,11 @@ class SharedMemory:
             is_done = self.total == self.done
         return is_done
 
+    async def set_total(self, total):
+        async with self.lock:
+            if self.total == -1:
+                self.total = total
+
     def print_counter(self, done=False):
         elapsed = time.time() - self.start_time
         percent = int(self.done / self.total * self.cols)
@@ -69,16 +79,39 @@ class SharedMemory:
         empty = ''.join([' 'for _ in range(remainder)])
         full = full[:-1] + ">"
         end = {'end': "\r"} if not done else {}
-        print(f"[{full}{empty}] {self.done}/{self.total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
+        total = "?" if self.total == -1 else self.total
+        print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
 
 
-async def consumer(source_queue, session, shared, ok_status_codes, stop_on_first_fail):
-    responses = []
+async def canceler(shared, source_semaphore, n_consumers):
     while True:
+        await asyncio.sleep(.1)
         is_done = await shared.check_done()
         should_stop = await shared.get_should_stop()
         if is_done or should_stop:
+            for _ in range(n_consumers):
+                source_semaphore.release()
             break
+
+
+async def producer(items, source_queue, source_semaphore, max_request_speed, shared):
+    total = 0
+    if max_request_speed == DontCare:
+        interval = 0
+    else:
+        interval = 1. / max_request_speed
+
+    for item in items:
+        await source_queue.put(item)
+        source_semaphore.release()
+        await asyncio.sleep(interval)
+
+    await shared.set_total(total)
+
+
+async def consumer(source_queue, source_semaphore, sink_queue, session, shared, ok_status_codes, stop_on_first_fail):
+    while True:
+        await source_semaphore.acquire()
         try:
             config = source_queue.get_nowait()
         except asyncio.QueueEmpty:
@@ -95,14 +128,14 @@ async def consumer(source_queue, session, shared, ok_status_codes, stop_on_first
             "status_code": status_code,
             "json": json_
         }
+        await sink_queue.put(response)
         if response["status_code"] in ok_status_codes:
             await shared.increment_success()
         else:
             await shared.increment_fail()
             if stop_on_first_fail:
                 await shared.set_should_stop()
-        responses.append(response)
-    return responses
+    return
 
 
 async def updater(shared):
@@ -117,7 +150,7 @@ async def updater(shared):
             break
 
 
-async def async_main(source_queue, shared, max_outstanding_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
+async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, max_request_speed, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
     trace_config = TraceConfig()
     trace_config.on_request_start.append(on_request_start)
     async with RetryClient(
@@ -129,40 +162,68 @@ async def async_main(source_queue, shared, max_outstanding_requests, ok_status_c
                 retry_all_server_errors=False
             ),
             raise_for_status=False) as session:
-        coros = [updater(shared)] + [consumer(source_queue, session, shared, ok_status_codes, stop_on_first_fail)
-                                     for _ in range(max_outstanding_requests)]
-        results = await asyncio.gather(*coros)
+        consumers = [consumer(source_queue, source_semaphore, sink_queue, session, shared,
+                              ok_status_codes, stop_on_first_fail) for _ in range(max_outstanding_requests)]
+        management_list = [updater(shared), producer(configs, source_queue, source_semaphore, max_request_speed, shared), canceler(
+            shared, source_semaphore, max_outstanding_requests)]
+        [asyncio.create_task(c) for c in consumers]
+        coros = management_list + consumers
 
-    results = [item for sublist in results[1:] for item in sublist]
+        await asyncio.gather(*management_list)
+
+
+# async def fill_queue(queue, items):
+#     for item in items:
+#         await queue.put(item)
+#     return queue
+
+
+async def empty_full_queue(queue):
+    results = []
+    while True:
+        try:
+            results.append(queue.get_nowait())
+        except asyncio.QueueEmpty:
+            break
     return results
 
 
-async def fill_queue(queue, items):
-    for item in items:
-        await queue.put(item)
-    return queue
-
-
-def sparp(configs: List[Dict], max_outstanding_requests: int, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
+def sparp(configs: List[Dict], max_outstanding_requests: int, max_request_speed: float, ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[], quiet=False) -> List:
     """Simple Parallel Asynchronous Requests in Python
 
     Arguments:
       configs (List[Dict]): the request configurations. Each item in this list is fed roughly as such: [requests.request(**config) for config in configs]
       max_outstanding_requests (int): max number of parallel requests alive at the same time
+      max_request_speed (float): max requests / second
       ok_status_codes (List[int]): list of status codes deemed "success"
       stop_on_first_fail (bool): whether or not to stop sending requests if we get a status not in stop_on_first_fail
       disable_bar (bool): do not print anything
       attempts (int): number of times to try (at least 1)
       retry_status_codes (List[int]): status codes to retry
+      quiet (bool): whether or not to never print debug information
 
     Returns:
       List: list of Responses
     """
     if attempts < 1:
         raise ValueError("attempts should be at least 1")
+
+    if hasattr(configs, '__len__'):
+        len_configs = len(configs)
+        total = len_configs
+        if max_outstanding_requests == DontCare:
+            max_outstanding_requests = len(configs)
+    else:
+        print("Setting max_outstanding requests to 100, this could be a bottleneck")
+        total = -1
+        if max_outstanding_requests == DontCare:
+            max_outstanding_requests = 100
     source_queue = asyncio.Queue()
-    source_queue = asyncio.run(fill_queue(source_queue, configs))
-    shared = SharedMemory(total=len(configs), disable_bar=disable_bar)
-    result = asyncio.run(async_main(source_queue, shared,
-                         max_outstanding_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
-    return result
+    source_semaphore = asyncio.Semaphore(0)
+    sink_queue = asyncio.Queue()
+    shared = SharedMemory(total=total, disable_bar=disable_bar)
+    asyncio.run(async_main(configs, source_queue, source_semaphore, sink_queue, shared,
+                           max_outstanding_requests, max_request_speed, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
+    results = asyncio.run(empty_full_queue(sink_queue))
+    print(len(results))
+    return results
