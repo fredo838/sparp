@@ -14,7 +14,7 @@ import sparp
 configs = [{'method': 'get', 'url': 'https://www.google.com'} for _ in range(10000)]
 results = sparp.sparp(configs, max_outstanding_requests=len(configs), =sparp.DontCare)
 print(results[0].keys())
-## dict_keys(['text', 'status_code', 'json'])
+## dict_keys(['text', 'status_code', 'json', 'elapsed'])
 ```
 
 ### Reference
