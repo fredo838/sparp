@@ -73,7 +73,10 @@ class SharedMemory:
 
     def print_counter(self, done=False):
         elapsed = time.time() - self.start_time
-        percent = int(self.done / self.total * self.cols)
+        if self.total == -1:
+            percent = 2
+        else:
+            percent = int(self.done / self.total * self.cols)
         remainder = self.cols - percent
         full = ''.join(['=' for _ in range(percent)])
         empty = ''.join([' 'for _ in range(remainder)])
@@ -97,11 +100,12 @@ async def canceler(shared, source_semaphore, n_consumers):
 async def producer(items, source_queue, source_semaphore, max_request_speed, shared):
     total = 0
     if max_request_speed == DontCare:
-        interval = 0
+        interval = 0.
     else:
         interval = 1. / max_request_speed
 
     for item in items:
+        total += 1
         await source_queue.put(item)
         source_semaphore.release()
         await asyncio.sleep(interval)
@@ -135,7 +139,6 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
             await shared.increment_fail()
             if stop_on_first_fail:
                 await shared.set_should_stop()
-    return
 
 
 async def updater(shared):
@@ -153,29 +156,27 @@ async def updater(shared):
 async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, max_request_speed, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
     trace_config = TraceConfig()
     trace_config.on_request_start.append(on_request_start)
+    retry_options = ExponentialRetry(
+        attempts=retry_attempts,
+        statuses=set(retry_status_codes),
+        retry_all_server_errors=False
+    )
     async with RetryClient(
             client_session=aiohttp.ClientSession(
-                skip_auto_headers=["Content-Type"], trace_configs=[trace_config]),
-            retry_options=ExponentialRetry(
-                attempts=retry_attempts,
-                statuses=set(retry_status_codes),
-                retry_all_server_errors=False
+                skip_auto_headers=["Content-Type"],
+                trace_configs=[trace_config]
             ),
+            retry_options=retry_options,
             raise_for_status=False) as session:
         consumers = [consumer(source_queue, source_semaphore, sink_queue, session, shared,
                               ok_status_codes, stop_on_first_fail) for _ in range(max_outstanding_requests)]
-        management_list = [updater(shared), producer(configs, source_queue, source_semaphore, max_request_speed, shared), canceler(
-            shared, source_semaphore, max_outstanding_requests)]
-        [asyncio.create_task(c) for c in consumers]
+        management_list = [
+            updater(shared),
+            producer(configs, source_queue, source_semaphore, max_request_speed, shared),
+            canceler(shared, source_semaphore, max_outstanding_requests)
+        ]
         coros = management_list + consumers
-
-        await asyncio.gather(*management_list)
-
-
-# async def fill_queue(queue, items):
-#     for item in items:
-#         await queue.put(item)
-#     return queue
+        await asyncio.gather(*coros)
 
 
 async def empty_full_queue(queue):
@@ -214,7 +215,8 @@ def sparp(configs: List[Dict], max_outstanding_requests: int, max_request_speed:
         if max_outstanding_requests == DontCare:
             max_outstanding_requests = len(configs)
     else:
-        print("Setting max_outstanding requests to 100, this could be a bottleneck")
+        if not quiet:
+            print("Setting max_outstanding requests to 100, this could be a bottleneck")
         total = -1
         if max_outstanding_requests == DontCare:
             max_outstanding_requests = 100
