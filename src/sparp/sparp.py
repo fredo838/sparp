@@ -198,7 +198,7 @@ async def _sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_be
     
     async_main(configs, source_queue, source_semaphore, sink_queue, shared,
                            max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
-    results = await empty_full_queue(sink_queue)
+    return await empty_full_queue(sink_queue)
     
 
 
