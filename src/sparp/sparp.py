@@ -84,7 +84,9 @@ class SharedMemory:
         full = full[:-1] + ">"
         end = {'end': "\r"} if not done else {}
         total = "?" if self.total == -1 else self.total
-        print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
+        print(
+            f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ",
+            **end, flush=True)
 
 
 async def canceler(shared, source_semaphore, n_consumers):
@@ -165,8 +167,11 @@ async def async_main(configs, source_queue, source_semaphore, sink_queue, shared
             ),
             retry_options=retry_options,
             raise_for_status=False) as session:
-        consumers = [consumer(source_queue, source_semaphore, sink_queue, session, shared,
-                              ok_status_codes, stop_on_first_fail) for _ in range(max_outstanding_requests)]
+        consumers = [
+            consumer(
+                source_queue, source_semaphore, sink_queue, session, shared,
+                ok_status_codes, stop_on_first_fail)
+            for _ in range(max_outstanding_requests)]
         management_list = [
             updater(shared),
             producer(configs, source_queue, source_semaphore, time_between_requests, shared),
@@ -185,21 +190,22 @@ async def empty_full_queue(queue):
             break
     return results
 
-async def _sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]):
+
+async def async_sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]):
     if hasattr(configs, '__len__'):
         total = len(configs)
     else:
         total = -1
-        
+
     source_queue = asyncio.Queue()
     source_semaphore = asyncio.Semaphore(0)
     sink_queue = asyncio.Queue()
     shared = SharedMemory(total=total, disable_bar=disable_bar)
-    
-    async_main(configs, source_queue, source_semaphore, sink_queue, shared,
-                           max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
+
+    await async_main(configs, source_queue, source_semaphore, sink_queue, shared,
+                     max_outstanding_requests, time_between_requests, ok_status_codes,
+                     stop_on_first_fail, attempts, retry_status_codes)
     return await empty_full_queue(sink_queue)
-    
 
 
 def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
@@ -220,5 +226,10 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
     """
     if attempts < 1:
         raise ValueError("attempts should be at least 1")
-    
-    return asyncio.run(_sparp(configs, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes))
+
+    return asyncio.run(
+        async_sparp(
+            configs, max_outstanding_requests, time_between_requests,
+            ok_status_codes, stop_on_first_fail, disable_bar, attempts,
+            retry_status_codes)
+    )
