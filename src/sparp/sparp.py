@@ -185,6 +185,22 @@ async def empty_full_queue(queue):
             break
     return results
 
+async def _sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]):
+    if hasattr(configs, '__len__'):
+        total = len(configs)
+    else:
+        total = -1
+        
+    source_queue = asyncio.Queue()
+    source_semaphore = asyncio.Semaphore(0)
+    sink_queue = asyncio.Queue()
+    shared = SharedMemory(total=total, disable_bar=disable_bar)
+    
+    async_main(configs, source_queue, source_semaphore, sink_queue, shared,
+                           max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
+    results = await empty_full_queue(sink_queue)
+    
+
 
 def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
     """Simple Parallel Asynchronous Requests in Python
@@ -204,15 +220,5 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
     """
     if attempts < 1:
         raise ValueError("attempts should be at least 1")
-    if hasattr(configs, '__len__'):
-        total = len(configs)
-    else:
-        total = -1
-    source_queue = asyncio.Queue()
-    source_semaphore = asyncio.Semaphore(0)
-    sink_queue = asyncio.Queue()
-    shared = SharedMemory(total=total, disable_bar=disable_bar)
-    asyncio.run(async_main(configs, source_queue, source_semaphore, sink_queue, shared,
-                           max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, attempts, retry_status_codes))
-    results = asyncio.run(empty_full_queue(sink_queue))
-    return results
+    
+    return asyncio.run(_sparp(configs, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes)
