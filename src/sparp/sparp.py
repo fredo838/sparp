@@ -221,4 +221,4 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
     if attempts < 1:
         raise ValueError("attempts should be at least 1")
     
-    return asyncio.run(_sparp(configs, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes)
+    return asyncio.run(_sparp(configs, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes))
