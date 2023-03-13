@@ -149,7 +149,7 @@ async def updater(shared):
             break
 
 
-async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes):
+async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes, aiohttp_client_session_kwargs):
     trace_config = TraceConfig()
     trace_config.on_request_start.append(on_request_start)
     trace_config.on_request_end.append(on_request_end)
@@ -161,7 +161,8 @@ async def async_main(configs, source_queue, source_semaphore, sink_queue, shared
     async with RetryClient(
             client_session=aiohttp.ClientSession(
                 skip_auto_headers=["Content-Type"],
-                trace_configs=[trace_config]
+                trace_configs=[trace_config],
+                **aiohttp_client_session_kwargs
             ),
             retry_options=retry_options,
             raise_for_status=False) as session:
@@ -186,7 +187,7 @@ async def empty_full_queue(queue):
     return results
 
 
-async def async_sparp(configs, total, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes):
+async def async_sparp(configs, total, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes, aiohttp_client_session_kwargs):
     source_queue = asyncio.Queue()
     source_semaphore = asyncio.Semaphore(0)
     sink_queue = asyncio.Queue()
@@ -194,13 +195,14 @@ async def async_sparp(configs, total, max_outstanding_requests, time_between_req
     await async_main(
         configs, source_queue, source_semaphore,
         sink_queue, shared, max_outstanding_requests, time_between_requests,
-        ok_status_codes, stop_on_first_fail, attempts, retry_status_codes
+        ok_status_codes, stop_on_first_fail, attempts, retry_status_codes,
+        aiohttp_client_session_kwargs
     )
     result = await empty_full_queue(sink_queue)
     return result
 
 
-def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[]) -> List:
+def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_requests: float = 0., ok_status_codes=[200], stop_on_first_fail=False, disable_bar: bool = False, attempts: int = 1, retry_status_codes=[], aiohttp_client_session_kwargs={}) -> List:
     """Simple Parallel Asynchronous Requests in Python
 
     Arguments:
@@ -212,6 +214,7 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
       disable_bar (bool): do not print anything
       attempts (int): number of times to try (at least 1)
       retry_status_codes (List[int]): status codes to retry
+      aiohttp_client_session_kwargs (Dict): additional kwargs to initialize aiohttp.ClientSession with 
 
     Returns:
       List: list of Responses
@@ -224,7 +227,8 @@ def sparp(configs: Iterator[Dict], max_outstanding_requests: int, time_between_r
         total = -1
     coro = async_sparp(
         configs, total, max_outstanding_requests, time_between_requests,
-        ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes
+        ok_status_codes, stop_on_first_fail, disable_bar, attempts, retry_status_codes,
+        aiohttp_client_session_kwargs
     )
     results = asyncio.run(coro)
     return results

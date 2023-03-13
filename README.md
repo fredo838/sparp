@@ -27,7 +27,8 @@ results = sparp.sparp(
   stop_on_first_fail=False,  # whether to stop and return (not error) when a "failed" response is encountered
   disable_bar=False,  # do not print anything
   attempts=1,  # number of times to try the request (must be at least 1)
-  retry_status_codes=[429]  # status codes to attempt a retry on
+  retry_status_codes=[429],  # status codes to attempt a retry on
+  aiohttp_client_session_kwargs={}  # additional kwargs to initialize aiohttp.ClientSession with 
 )
 ```
 ### Small print
