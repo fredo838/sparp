@@ -48,7 +48,8 @@ class SharedMemory:
         async with self.lock:
             self.done += 1
             self.success += 1
-            self.print_counter()
+            if not self.disable_bar:
+                self.print_counter()
 
     async def increment_fail(self):
         async with self.lock:
