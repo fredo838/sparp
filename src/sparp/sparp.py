@@ -161,7 +161,6 @@ async def async_main(configs, source_queue, source_semaphore, sink_queue, shared
     )
     async with RetryClient(
             client_session=aiohttp.ClientSession(
-                skip_auto_headers=["Content-Type"],
                 trace_configs=[trace_config],
                 **aiohttp_client_session_kwargs
             ),
