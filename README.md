@@ -5,7 +5,7 @@ Find `async` or `await` confusing, and just want to process a list of requests? 
 is the package for you. 
 ### Installation
 ```bash
-python3 -m pip install python3 -m pip install git+https://github.com/fredo838/sparp.git
+python3 -m pip install git+https://github.com/fredo838/sparp.git
 ```
 
 ### Simple example
@@ -28,7 +28,8 @@ results = sparp.sparp(
   disable_bar=False,  # do not print anything
   attempts=1,  # number of times to try the request (must be at least 1)
   retry_status_codes=[429],  # status codes to attempt a retry on
-  aiohttp_client_session_kwargs={}  # additional kwargs to initialize aiohttp.ClientSession with 
+  aiohttp_client_session_kwargs={},  # additional kwargs to initialize aiohttp.ClientSession with 
+  print_kwargs={"end":"\r"}  # additional kwargs to pass to the 'print' function for printing the progress bar
 )
 ```
 ### Small print
