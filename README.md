@@ -28,7 +28,8 @@ results = sparp.sparp(
   disable_bar=False,  # do not print anything
   attempts=1,  # number of times to try the request (must be at least 1)
   retry_status_codes=[429],  # status codes to attempt a retry on
-  aiohttp_client_session_kwargs={}  # additional kwargs to initialize aiohttp.ClientSession with 
+  aiohttp_client_session_kwargs={},  # additional kwargs to initialize aiohttp.ClientSession with 
+  print_kwargs={"end":"\r"}  # additional kwargs to pass to the 'print' function for printing the progress bar
 )
 ```
 ### Small print
