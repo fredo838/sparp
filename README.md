@@ -5,7 +5,7 @@ Find `async` or `await` confusing, and just want to process a list of requests? 
 is the package for you. 
 ### Installation
 ```bash
-python3 -m pip install python3 -m pip install git+https://github.com/fredo838/sparp.git
+python3 -m pip install git+https://github.com/fredo838/sparp.git
 ```
 
 ### Simple example
