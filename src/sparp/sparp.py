@@ -119,7 +119,7 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
             break
         try:
             response = await session.request(**config)
-            status_code = response.status_code
+            status_code = response.status
             response_text = await response.text()
             try:
                 json_ = await response.json()
