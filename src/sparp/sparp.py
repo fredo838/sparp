@@ -117,19 +117,25 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
             config = source_queue.get_nowait()
         except asyncio.QueueEmpty:
             break
-        response = await session.request(**config)
-        response_text = await response.text()
-        status_code = response.status
         try:
-            json_ = await response.json()
+            response = await session.request(**config)
+            status_code = response.status_code
+            response_text = await response.text()
+            try:
+                json_ = await response.json()
+            except Exception as e:
+                json_ = f"Failed to decode json due to {str(e)}"
+            response = {
+                "text": response_text,
+                "status_code": status_code,
+                "json": json_,
+                "elapsed": response.elapsed
+            }
         except Exception as e:
-            json_ = f"Failed to decode json due to {str(e)}"
-        response = {
-            "text": response_text,
-            "status_code": status_code,
-            "json": json_,
-            "elapsed": response.elapsed
-        }
+            response = {
+                "error_message": str(e)
+            }
+
         await sink_queue.put(response)
         if response["status_code"] in ok_status_codes:
             await shared.increment_success()
