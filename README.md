@@ -4,9 +4,15 @@
 Find `async` or `await` confusing, and just want to process a list of requests? Then this 
 is the package for you. 
 ### Installation
+Install it directly from git:
 ```bash
 python3 -m pip install git+https://github.com/fredo838/sparp.git
 ```
+Pin your version to a commit with 
+```bash
+python3 -m pip install git+https://github.com/fredo838/sparp.git@gitsha
+```
+
 
 ### Simple example
 ```python3
@@ -14,9 +20,14 @@ import sparp
 configs = [{'method': 'get', 'url': 'https://www.google.com'} for _ in range(10000)]
 results = sparp.sparp(configs, max_outstanding_requests=len(configs))
 print(results[0].keys())
-## dict_keys(['text', 'status_code', 'json', 'elapsed'])
+# dict_keys(['text', 'status_code', 'json', 'elapsed'])
 ```
-
+if the request itself errors (similar to how `"requests.get"` would *error* instead of
+returning some (good or bad) status code) the, the resulting payload will be
+```
+print(results[0].keys())
+# dict_keys(['error_message']) 
+```
 ### Reference
 ```python3
 results = sparp.sparp(
