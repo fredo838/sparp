@@ -137,12 +137,12 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
             }
 
         await sink_queue.put(response)
-        if response["status_code"] in ok_status_codes:
-            await shared.increment_success()
-        else:
+        if "error_message" in response or response["status_code"] not in ok_status_codes:
             await shared.increment_fail()
             if stop_on_first_fail:
                 await shared.set_should_stop()
+        else:
+            await shared.increment_success()
 
 
 async def updater(shared):
