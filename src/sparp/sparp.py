@@ -135,10 +135,7 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
             response = {
                 "error_message": str(e)
             }
-            
-        
-        
-        
+
         await sink_queue.put(response)
         if response["status_code"] in ok_status_codes:
             await shared.increment_success()
