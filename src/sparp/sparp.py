@@ -6,6 +6,8 @@ from typing import Dict, List, Iterator
 from aiohttp_retry import RetryClient, ExponentialRetry
 import time
 from aiohttp import TraceConfig
+import traceback
+import sys
 
 
 async def on_request_end(session, trace_config_ctx, params):
@@ -14,11 +16,16 @@ async def on_request_end(session, trace_config_ctx, params):
     # print("Request took {}".format(elapsed))
 
 
-async def on_request_start(session, trace_config_ctx, params) -> None:
-    current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
-    if current_attempt > 1:
-        print(f"Retrying request, attempt number {current_attempt}")
-    trace_config_ctx.start = asyncio.get_event_loop().time()
+def generate_on_request_start(attempts):
+    async def on_request_start(session, trace_config_ctx, params) -> None:
+        current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
+        attempts_left = attempts - current_attempt
+        if current_attempt > 1 and attempts_left <= 2:
+
+            print(
+                f"Retrying request, attempt number {current_attempt}, only {attempts_left} attempt(s) left")
+        trace_config_ctx.start = asyncio.get_event_loop().time()
+    return on_request_start
 
 
 class SharedMemory:
@@ -132,8 +139,10 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
                 "elapsed": response.elapsed
             }
         except Exception as e:
+            exc_info = sys.exc_info()
+            error_message = ''.join(traceback.format_exception(*exc_info))
             response = {
-                "error_message": str(e)
+                "error_message": error_message
             }
 
         await sink_queue.put(response)
@@ -159,11 +168,12 @@ async def updater(shared):
 
 async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes, aiohttp_client_session_kwargs):
     trace_config = TraceConfig()
-    trace_config.on_request_start.append(on_request_start)
+    trace_config.on_request_start.append(generate_on_request_start(retry_attempts))
     trace_config.on_request_end.append(on_request_end)
     retry_options = ExponentialRetry(
         attempts=retry_attempts,
         statuses=set(retry_status_codes),
+        exceptions=[asyncio.exceptions.TimeoutError],
         retry_all_server_errors=False
     )
     async with RetryClient(
