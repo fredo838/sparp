@@ -9,17 +9,23 @@ from aiohttp import TraceConfig
 import traceback
 import sys
 
+
 async def on_request_end(session, trace_config_ctx, params):
     elapsed = asyncio.get_event_loop().time() - trace_config_ctx.start
     params.response.elapsed = elapsed
     # print("Request took {}".format(elapsed))
 
 
-async def on_request_start(session, trace_config_ctx, params) -> None:
-    current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
-    if current_attempt > 1:
-        print(f"Retrying request, attempt number {current_attempt}")
-    trace_config_ctx.start = asyncio.get_event_loop().time()
+def generate_on_request_start(attempts):
+    async def on_request_start(session, trace_config_ctx, params) -> None:
+        current_attempt = trace_config_ctx.trace_request_ctx['current_attempt']
+        attempts_left = attempts - current_attempt
+        if current_attempt > 1 and attempts_left <= 2:
+
+            print(
+                f"Retrying request, attempt number {current_attempt}, only {attempts_left} attempt(s) left")
+        trace_config_ctx.start = asyncio.get_event_loop().time()
+    return on_request_start
 
 
 class SharedMemory:
@@ -88,6 +94,7 @@ class SharedMemory:
         end = self.print_options if not done else {}
         total = "?" if self.total == -1 else self.total
         print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
+
 
 async def canceler(shared, source_semaphore, n_consumers):
     while True:
