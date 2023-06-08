@@ -131,6 +131,7 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
                 "json": json_,
                 "elapsed": response.elapsed
             }
+        except 
         except Exception as e:
             exc_info = sys.exc_info()
             error_message = ''.join(traceback.format_exception(*exc_info))
@@ -166,6 +167,7 @@ async def async_main(configs, source_queue, source_semaphore, sink_queue, shared
     retry_options = ExponentialRetry(
         attempts=retry_attempts,
         statuses=set(retry_status_codes),
+        exceptions=[asyncio.exceptions.TimeoutError],
         retry_all_server_errors=False
     )
     async with RetryClient(
