@@ -6,7 +6,8 @@ from typing import Dict, List, Iterator
 from aiohttp_retry import RetryClient, ExponentialRetry
 import time
 from aiohttp import TraceConfig
-
+import traceback
+import sys
 
 async def on_request_end(session, trace_config_ctx, params):
     elapsed = asyncio.get_event_loop().time() - trace_config_ctx.start
@@ -88,7 +89,6 @@ class SharedMemory:
         total = "?" if self.total == -1 else self.total
         print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
 
-
 async def canceler(shared, source_semaphore, n_consumers):
     while True:
         await asyncio.sleep(.1)
@@ -131,9 +131,11 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
                 "json": json_,
                 "elapsed": response.elapsed
             }
-        except Exception as e:
+        except Exception:
+            exc_info = sys.exc_info()
+            error_message = ''.join(traceback.format_exception(*exc_info))
             response = {
-                "error_message": str(e)
+                "error_message": error_message
             }
 
         await sink_queue.put(response)
