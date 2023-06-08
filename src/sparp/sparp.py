@@ -131,7 +131,6 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
                 "json": json_,
                 "elapsed": response.elapsed
             }
-        except 
         except Exception as e:
             exc_info = sys.exc_info()
             error_message = ''.join(traceback.format_exception(*exc_info))
