@@ -168,7 +168,7 @@ async def updater(shared):
 
 async def async_main(configs, source_queue, source_semaphore, sink_queue, shared, max_outstanding_requests, time_between_requests, ok_status_codes, stop_on_first_fail, retry_attempts, retry_status_codes, aiohttp_client_session_kwargs):
     trace_config = TraceConfig()
-    trace_config.on_request_start.append(on_request_start)
+    trace_config.on_request_start.append(generate_on_request_start(retry_attempts))
     trace_config.on_request_end.append(on_request_end)
     retry_options = ExponentialRetry(
         attempts=retry_attempts,
