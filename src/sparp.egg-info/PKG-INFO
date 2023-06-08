@@ -1,6 +1,0 @@
-Metadata-Version: 2.1
-Name: sparp
-Version: 1.0.0
-Summary: Simple Parallel Async Requests Python
-Requires-Python: >3.5
-License-File: LICENSE.md
