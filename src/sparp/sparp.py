@@ -132,9 +132,6 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
                 "elapsed": response.elapsed
             }
         except Exception as e:
-            print("***")
-            print(e)
-            print("***")
             exc_info = sys.exc_info()
             error_message = ''.join(traceback.format_exception(*exc_info))
             response = {
@@ -143,9 +140,6 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
 
         await sink_queue.put(response)
         if "error_message" in response or response["status_code"] not in ok_status_codes:
-            print("***")
-            print(response)
-            print("****")
             await shared.increment_fail()
             if stop_on_first_fail:
                 await shared.set_should_stop()
