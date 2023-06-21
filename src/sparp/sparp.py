@@ -33,6 +33,7 @@ class SharedMemory:
         self.lock = asyncio.Lock()
         self.done = 0
         self.success = 0
+        self.live = 0
         self.fail = 0
         self.total = total
         self.cols = cols
@@ -43,17 +44,25 @@ class SharedMemory:
         if not self.disable_bar:
             self.print_counter()
 
+    async def increment_live(self):
+        # async with self.lock:
+            self.live += 1
+
+    async def decrement_live(self):
+        # async with self.lock:
+            self.live -= 1
+
     async def set_should_stop(self):
-        async with self.lock:
+        # async with self.lock:
             self.should_stop = True
 
     async def get_should_stop(self):
-        async with self.lock:
-            should_stop = self.should_stop
+        # async with self.lock:
+        should_stop = self.should_stop
         return should_stop
 
     async def increment_success(self):
-        async with self.lock:
+        # async with self.lock:
             self.done += 1
             self.success += 1
             if not self.disable_bar:
@@ -93,7 +102,7 @@ class SharedMemory:
         full = full[:-1] + ">"
         end = self.print_options if not done else {}
         total = "?" if self.total == -1 else self.total
-        print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail},  took {round(elapsed, 2)}                            ", **end, flush=True)
+        print(f"[{full}{empty}] {self.done}/{total}, success={self.success}, fail={self.fail}, live={self.live}  took {round(elapsed, 2)}                            ", **end, flush=True)
 
 
 async def canceler(shared, source_semaphore, n_consumers):
@@ -125,7 +134,9 @@ async def consumer(source_queue, source_semaphore, sink_queue, session, shared, 
         except asyncio.QueueEmpty:
             break
         try:
+            await shared.increment_live()
             response = await session.request(**config)
+            await shared.decrement_live()
             status_code = response.status
             response_text = await response.text()
             try:
