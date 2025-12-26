@@ -84,7 +84,7 @@ All configurations are passed during the initialization of the `SPARP` class:
 class SPARP:
     def __init__(
         self: Self,
-        input_collection: Generator[dict[str, Any], None, None], # Stream of request configurations
+        input_collection: Iterable[Dict[str, Any]],             # Iterable of request configurations
         inspect_response: Callable[[aiohttp.ClientResponse], ResponseState], # Logic to categorize response status
         callbacks: Callbacks = Callbacks(),                      # Hooks for success, fail, and retry events
         concurrency: int = 100,                                 # Maximum number of simultaneous requests

@@ -154,7 +154,7 @@ class SPARP:
         self.max_retries_soft_reached_count: int = 0
         self.max_retries_timeout_reached_count: int = 0
 
-        self.generator_exhausted: asyncio.Event = asyncio.Event()
+        self.iterator_exhausted: asyncio.Event = asyncio.Event()
 
         self.callbacks: Callbacks = callbacks
         self.inspect_response: Callable[[aiohttp.ClientResponse], ResponseState] = inspect_response
@@ -254,7 +254,7 @@ class SPARP:
         for item in self.input_collection:
             self.seen += 1
             await self.input_queue.put(item)
-        self.generator_exhausted.set()
+        self.iterator_exhausted.set()
         for _ in range(self.concurrency):
             await self.input_queue.put(DoneSentinel())
 
@@ -268,7 +268,7 @@ class SPARP:
 
     def display_bar(self: Self) -> None:
         done: int = self.dones()
-        if self.generator_exhausted.is_set():
+        if self.iterator_exhausted.is_set():
             progress: float = 100.0 * done / self.seen if self.seen > 0 else 100.0
             est = f"{done}/{self.seen} - {progress:.1f}%"
         elif self.estimated_input_collection_size:
@@ -304,7 +304,7 @@ class SPARP:
                     for _ in range(self.concurrency):
                         tg.create_task(self._requester(session))
 
-                    await self.generator_exhausted.wait()
+                    await self.iterator_exhausted.wait()
                     # Join inside the TaskGroup context ensures all accounting
                     # completes before the group closes.
                     await self.input_queue.join()
