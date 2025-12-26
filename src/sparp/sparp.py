@@ -9,41 +9,66 @@ from dataclasses import dataclass
 
 
 class ResponseState(Enum):
+    """Represents the classification of an HTTP response for retry logic."""
+
     HARD_FAIL = "HARD_FAIL"
     SOFT_FAIL = "SOFT_FAIL"
     SUCCESS = "SUCCESS"
 
 
 class Sentinel:
+    """Generic sentinel class for internal signaling."""
+
     pass
 
 
 class DoneSentinel:
+    """Sentinel used to signal to worker tasks that the input queue is exhausted."""
+
     pass
 
 
 class SPARPStopSignal(Exception):
+    """Base exception for signals that should terminate the SPARP execution."""
+
     pass
 
 
 class HardFailStop(SPARPStopSignal):
+    """Raised when a hard failure occurs and stop_on_hard_fail is True."""
+
     pass
 
 
 class SoftFailStop(SPARPStopSignal):
+    """Raised when a soft failure occurs and stop_on_soft_fail is True."""
+
     pass
 
 
 class TimeoutFailStop(SPARPStopSignal):
+    """Raised when a timeout occurs and stop_on_timeout is True."""
+
     pass
 
 
 class MaxRetriesStop(SPARPStopSignal):
+    """Raised when the maximum retry limit is reached for a specific request."""
+
     pass
 
 
 @dataclass(frozen=True)
 class SparpStats:
+    """Data container for execution statistics.
+
+    Attributes:
+        success: Total number of successful requests.
+        failed: Total number of hard-failed requests.
+        soft_retries: Cumulative count of all soft-fail retry attempts.
+        timeout_retries: Cumulative count of all timeout retry attempts.
+    """
+
     success: int
     failed: int
     soft_retries: int
@@ -52,6 +77,16 @@ class SparpStats:
 
 @dataclass(frozen=True)
 class SparpResult:
+    """Final result container for a SPARP run.
+
+    Attributes:
+        stats: Aggregated statistics.
+        success: List of parsed successful responses.
+        failed: List of parsed hard-fail responses.
+        max_retries_soft_fail_reached: Requests that were abandoned after max soft retries.
+        max_retries_timeout_reached: Requests that were abandoned after max timeout retries.
+    """
+
     stats: SparpStats
     success: List[Any]
     failed: List[Any]
@@ -60,7 +95,10 @@ class SparpResult:
 
 
 class ResultQueues:
+    """Async queues for collecting results during processing."""
+
     def __init__(self: Self) -> None:
+        """Initializes queues for success, failure, and retry limit exhaustion."""
         self.success: asyncio.Queue[Any] = asyncio.Queue()
         self.failed: asyncio.Queue[Any] = asyncio.Queue()
         self.max_retries_soft_fail_reached: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
@@ -68,6 +106,7 @@ class ResultQueues:
 
     @staticmethod
     async def _drain(q: asyncio.Queue[Any]) -> List[Any]:
+        """Collects all items currently in a queue and marks them as done."""
         items: List[Any] = []
         while not q.empty():
             items.append(await q.get())
@@ -75,6 +114,7 @@ class ResultQueues:
         return items
 
     async def drain_all(self: Self) -> Dict[str, List[Any]]:
+        """Drains all result queues into a dictionary of lists."""
         return {
             "success": await self._drain(self.success),
             "failed": await self._drain(self.failed),
@@ -84,6 +124,8 @@ class ResultQueues:
 
 
 class StopConditions:
+    """Configuration for early termination based on specific failure events."""
+
     def __init__(
         self: Self,
         stop_on_soft_fail: bool = False,
@@ -92,6 +134,7 @@ class StopConditions:
         stop_on_max_retries_by_timeout_reached: bool = False,
         stop_on_timeout: bool = False,
     ) -> None:
+        """Sets the flags for various early-stop scenarios."""
         self.stop_on_soft_fail = stop_on_soft_fail
         self.stop_on_hard_fail = stop_on_hard_fail
         self.stop_on_max_retries_by_soft_fail_reached = stop_on_max_retries_by_soft_fail_reached
@@ -100,6 +143,8 @@ class StopConditions:
 
 
 class Callbacks:
+    """User-defined hooks for various lifecycle events in the request process."""
+
     def __init__(
         self: Self,
         on_success: Callable[[Dict[str, Any], aiohttp.ClientResponse], None] | None = None,
@@ -109,6 +154,7 @@ class Callbacks:
         on_max_retries_by_soft_fail_reached: Callable[[Dict[str, Any]], None] | None = None,
         on_max_retries_by_timeout_reached: Callable[[Dict[str, Any]], None] | None = None,
     ) -> None:
+        """Initializes callback functions for different request outcomes."""
         self.on_success = on_success
         self.on_hard_fail = on_hard_fail
         self.on_soft_fail = on_soft_fail
@@ -118,6 +164,7 @@ class Callbacks:
 
 
 async def default_parse_response(request_dict: Dict[str, Any], response: aiohttp.ClientResponse) -> Any:
+    """The default parser that returns basic response metadata and text body."""
     return {
         "input": request_dict,
         "status": response.status,
@@ -127,6 +174,12 @@ async def default_parse_response(request_dict: Dict[str, Any], response: aiohttp
 
 
 class SPARP:
+    """Simple Pitched Asynchronous Request Processor (SPARP).
+
+    Coordinates concurrent HTTP requests with configurable retries,
+    stop conditions, and result parsing.
+    """
+
     def __init__(
         self: Self,
         input_collection: Iterable[Dict[str, Any]],
@@ -144,6 +197,7 @@ class SPARP:
         progress_bar_requests_threshold: int = 1,
         progress_bar_time_threshold: datetime.timedelta = datetime.timedelta(seconds=0.5),
     ) -> None:
+        """Initializes the SPARP engine with configuration and state."""
         self.seen: int = 0
         self.concurrency: int = concurrency
         self.input_queue: asyncio.Queue[Dict[str, Any] | DoneSentinel] = asyncio.Queue(maxsize=input_buffer_size)
@@ -176,6 +230,7 @@ class SPARP:
             raise ValueError("progress_bar_time_threshold should not be zero seconds")
 
     async def _requester(self: Self, session: aiohttp.ClientSession) -> None:
+        """Worker loop that pulls requests from the queue and executes them."""
         while True:
             next_request: Dict[str, Any] | DoneSentinel = await self.input_queue.get()
             if isinstance(next_request, DoneSentinel):
@@ -251,6 +306,7 @@ class SPARP:
                 self.input_queue.task_done()
 
     async def _producer(self: Self) -> None:
+        """Iterates over input_collection and populates the input queue."""
         for item in self.input_collection:
             self.seen += 1
             await self.input_queue.put(item)
@@ -259,6 +315,7 @@ class SPARP:
             await self.input_queue.put(DoneSentinel())
 
     def dones(self: Self) -> int:
+        """Returns the total number of processed requests (final states)."""
         return (
             self.success_count
             + self.failed_count
@@ -267,6 +324,7 @@ class SPARP:
         )
 
     def display_bar(self: Self) -> None:
+        """Prints a real-time progress bar to the terminal."""
         done: int = self.dones()
         if self.iterator_exhausted.is_set():
             progress: float = 100.0 * done / self.seen if self.seen > 0 else 100.0
@@ -285,6 +343,7 @@ class SPARP:
         )
 
     async def _bar_updater(self: Self) -> None:
+        """Background task that periodically refreshes the progress bar."""
         if not self.show_progress_bar:
             return
         try:
@@ -295,6 +354,7 @@ class SPARP:
             return
 
     async def _main(self: Self) -> SparpResult:
+        """Core async orchestrator managing the TaskGroup for workers and producer."""
         try:
             timeout = aiohttp.ClientTimeout(total=self.timeout_s)
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -305,8 +365,6 @@ class SPARP:
                         tg.create_task(self._requester(session))
 
                     await self.iterator_exhausted.wait()
-                    # Join inside the TaskGroup context ensures all accounting
-                    # completes before the group closes.
                     await self.input_queue.join()
                     updater_task.cancel()
         except* SPARPStopSignal:
@@ -317,9 +375,11 @@ class SPARP:
         return await self.get_results()
 
     def main(self: Self) -> SparpResult:
+        """Synchronous entry point to run the SPARP engine."""
         return asyncio.run(self._main())
 
     def get_stats(self: Self) -> SparpStats:
+        """Returns a snapshot of the current execution statistics."""
         return SparpStats(
             success=self.success_count,
             failed=self.failed_count,
@@ -328,6 +388,7 @@ class SPARP:
         )
 
     async def get_results(self: Self) -> SparpResult:
+        """Drains all internal queues and returns the final SparpResult object."""
         drained = await self.queues.drain_all()
         return SparpResult(
             success=drained["success"],

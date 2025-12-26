@@ -15,10 +15,8 @@ def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
 
 def main():
     requests = [{"method": "GET", "url": f"https://httpbin.org/get?item={i}"} for i in range(100)]
-
     sparp = SPARP(requests, inspect_response=inspect_response, concurrency=20, show_progress_bar=True)
     result = sparp.main()
-
     for item in result.success:
         # ['args']['item'] are specific to httpbin.org/get
         print(f"data sent: {item['input']['url']}, data received: {json.loads(item['text'])['args']['item']}")
