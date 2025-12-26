@@ -1,1 +1,7 @@
 __pycache__
+.venv
+.venv-uv
+.pytest_cache
+.ruff_cache
+.pypirc
+*egg-info*

@@ -1,10 +1,42 @@
 [project]
 name = "sparp"
-description = "Simple Parallel Async Requests Python"
-requires-python = ">3.5"
-version = "1.0.0"
-dependencies = [
-    "asyncio",
-    "aiohttp",
-    "aiohttp-retry"
+description = "Simple Parallel Asynchronous Requests for Python"
+readme = "README.md"
+requires-python = ">=3.13"
+version = "1.7.0"
+# Modern SPDX string format
+license = "MIT"
+# Explicitly include the license file
+license-files = ["LICENSE.md"]
+authors = [
+  { name = "Frederik Bode" }
 ]
+
+dependencies = [
+  "aiohttp~=3.13.2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest~=9.0.2",
+  "pytest-asyncio~=1.3.0",
+  "ruff~=0.14.9",
+  "mypy~=1.19.1"
+]
+
+[tool.setuptools]
+# This ensures only the 'sparp' package is installed, not 'tests' or 'src' itself
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sparp*"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

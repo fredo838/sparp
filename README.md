@@ -1,53 +1,146 @@
-# Documentation
-`sparp` stands for _**S**imple **P**arallel **A**synchronous **R**equests in **P**ython_
-### Purpose
-Find `async` or `await` confusing, and just want to process a list of requests? Then this 
-is the package for you. 
-### Installation
-Install it directly from git:
+# SPARP: Simple Parallel Async Requests for Python
+
+This library enables you to turn: ```responses = [requests.post(url) for url in urls]``` into concurrent requests without you needing to write any `async/await` code.
+
+
+
+## Installation
+
+
 ```bash
-python3 -m pip install git+https://github.com/fredo838/sparp.git
+python3 -m pip install sparp
 ```
-Pin your version to a commit with 
+
+## Basic Usage
+
+This example shows how to process 100 concurrent requests with a progress bar:
+
+```python
+# examples/basic_example.py
+import aiohttp
+from sparp.sparp import SPARP, ResponseState
+import json
+
+
+def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
+    if response.status == 200:
+        return ResponseState.SUCCESS
+    if response.status == 429 or response.status == 502:
+        return ResponseState.SOFT_FAIL
+    return ResponseState.HARD_FAIL
+
+
+def main():
+    requests = [{
+        "method": "GET",
+        "url": f"https://httpbin.org/get?item={i}"}
+    for i in range(100)]
+
+    result = SPARP(
+        requests, inspect_response=inspect_response, concurrency=20, show_progress_bar=True
+    ).main()
+
+    for item in result.success:
+        print(
+            f"data sent: {item['input']['url']},
+            data received: {json.loads(item['text'])['args']['item']}"
+        )
+    print(f"Completed {result.stats.success} requests")
+    print(f"Retried {result.stats.soft_retries} times")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+## Running Examples
+
 ```bash
-python3 -m pip install git+https://github.com/fredo838/sparp.git@gitsha
+make run-basic-usage
+make run-example EXAMPLE=input_collection
+make run-example EXAMPLE=callbacks
+make run-example EXAMPLE=custom_parser
+make run-example EXAMPLE=retry_exhaustion
+make run-example EXAMPLE=stop_condition
+make run-example EXAMPLE=timeouts
 ```
 
 
-### Simple example
-```python3
-import sparp
-configs = [{'method': 'get', 'url': 'https://www.google.com'} for _ in range(10000)]
-results = sparp.sparp(configs, max_outstanding_requests=len(configs))
-print(results[0].keys())
-# dict_keys(['text', 'status_code', 'json', 'elapsed'])
+## Features
+
+* **Generator Support**: Takes a generator as input to generate request data on the fly.
+* **Smart Retries**: Separate logic for retrying based on request timeouts versus server information (like a 429 - Too Many Requests).
+* **Custom Parsing**: Decide exactly what data to keep from the response (headers, body, or status) before the final list is returned.
+* **Progress Tracking**: A nice progress bar that tracks successes, failures, and retries in real-time.
+
+
+
+## API Reference
+
+### Initialization
+All configurations are passed during the initialization of the `SPARP` class:
+
+```python
+class SPARP:
+    def __init__(
+        self: Self,
+        input_collection: Generator[dict[str, Any], None, None], # Stream of request configurations
+        inspect_response: Callable[[aiohttp.ClientResponse], ResponseState], # Logic to categorize response status
+        callbacks: Callbacks = Callbacks(),                      # Hooks for success, fail, and retry events
+        concurrency: int = 100,                                 # Maximum number of simultaneous requests
+        max_retries_by_soft_fail: int = 20,                     # Retry limit for server-side errors (e.g. 429)
+        max_retries_by_timeout: int = 20,                       # Retry limit for connection or read timeouts
+        parse_response: Callable[                               # Logic to extract data from the response
+            [dict[str, Any], aiohttp.ClientResponse], Awaitable[Any]
+        ] = default_parse_response,
+        stop_conditions: StopConditions = StopConditions(),      # Thresholds to halt the entire process
+        input_buffer_size: int = 100,                           # Items to pre-fetch from generator into memory
+        show_progress_bar: bool = False,                        # Toggle the terminal progress UI
+        estimated_input_collection_size: int | None = None,     # Total count for accurate progress percentage
+        timeout_s: float = 30.0,                                # Seconds before a request attempt times out
+        progress_bar_requests_threshold: int = 1,               # Min requests finished before UI updates
+        progress_bar_time_threshold: datetime.timedelta =       # Min time elapsed before UI updates
+            datetime.timedelta(seconds=0.5),
+    ) -> None:
+    ...
+
+    def main() -> 
+
+# Input classes
+
+class ResponseState(Enum):
+    HARD_FAIL = "HARD_FAIL"
+    SOFT_FAIL = "SOFT_FAIL"
+    SUCCESS = "SUCCESS"
+
+
+class Callbacks:
+    def __init__(
+        self: Self,
+        on_success: Callable[[dict[str, Any], aiohttp.ClientResponse], None] | None = None,
+        on_hard_fail: Callable[[dict[str, Any], aiohttp.ClientResponse], None] | None = None,
+        on_soft_fail: Callable[[dict[str, Any], int], None] | None = None,
+        on_timeout: Callable[[dict[str, Any], int], None] | None = None,
+        on_max_retries_by_soft_fail_reached: Callable[[dict[str, Any]], None] | None = None,
+        on_max_retries_by_timeout_reached: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
+    ...
+
+
+# Output classes
+@dataclass(frozen=True)
+class SparpStats:
+    success: int
+    failed: int
+    soft_retries: int
+    timeout_retries: int
+
+
+@dataclass(frozen=True)
+class SparpResult:
+    stats: SparpStats
+    success: list[Any]
+    failed: list[Any]
+    max_retries_soft_fail_reached: list[dict[str, Any]]
+    max_retries_timeout_reached: list[dict[str, Any]]
 ```
-if the request itself errors (similar to how `"requests.get"` would *error* instead of
-returning some (good or bad) status code) the, the resulting payload will be
-```
-print(results[0].keys())
-# dict_keys(['error_message']) 
-```
-### Reference
-```python3
-results = sparp.sparp(
-  configs, # list of request configs. See below
-  max_outstanding_requests=1000, # max number of concurrent requests alive at the same time. Should be in [0, len(configs)]. Using len(configs) guarantees you won't bottleneck the processing.
-  time_between_requests=0, # minimum amount of time between two requests
-  ok_status_codes=[200],  # status codes that are deemed "success"
-  stop_on_first_fail=False,  # whether to stop and return (not error) when a "failed" response is encountered
-  disable_bar=False,  # do not print anything
-  attempts=1,  # number of times to try the request (must be at least 1)
-  retry_status_codes=[429],  # status codes to attempt a retry on
-  aiohttp_client_session_kwargs={},  # additional kwargs to initialize aiohttp.ClientSession with 
-  print_kwargs={"end":"\r"}  # additional kwargs to pass to the 'print' function for printing the progress bar
-)
-```
-### Small print
-- each `config` in `configs` should be able to be passed to `aiohttp.ClientSession.request(**config)`
-- `configs` should preferably be a `list` of `dict`s, but you can also use a `generator`, so if you want to make your request
-as soon as you have created your `config`, you can.
-- `max_outstanding_requests` is a mandatory paramater, but what should you use? We create a `consumer coroutine` (read: `while loop that makes requests`) for every item in `range(max_outstanding_requests)`, so the ideal value is just above the "actual" max amount of requests that will be active at the same time, but we don't know that beforehand. So rule of thumb:
-  - try `100`, if not fast enough, make it `1000`, still not fast enough use `len(configs)`. 
-  - using `len(configs)` ensures you wont bottleneck your application, but know that this creates `len(configs)` `coroutines` (so those `while loops`), so it should not be tooo much, let's say `<100000`.
-  - if the `url` you call cannot scale beyond `1000` requests, than using values higher that `1000` will only hurt performance
