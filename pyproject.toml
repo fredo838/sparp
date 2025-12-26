@@ -3,7 +3,7 @@ name = "sparp"
 description = "Simple Parallel Asynchronous Requests for Python"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "1.1.0"
+version = "1.8.0"
 # Modern SPDX string format
 license = "MIT"
 # Explicitly include the license file
