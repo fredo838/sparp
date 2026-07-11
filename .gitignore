@@ -1,6 +1,6 @@
 __pycache__
 .venv
-.venv-uv
+.uv-venv
 .pytest_cache
 .ruff_cache
 .pypirc

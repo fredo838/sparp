@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 VENV := .venv
-VENV_UV := .venv-uv
+VENV_UV := .uv-venv
 SRC := src/sparp
 
 # get PYTHON_VERSION from 'requires-python' section in pyproject.toml
