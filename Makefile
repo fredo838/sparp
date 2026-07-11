@@ -22,10 +22,10 @@ bootstrap-uv:
 		echo "--- Creating UV bootstrap venv ---"; \
 		$(PYTHONV) -m venv $(VENV_UV); \
 	fi
-	@if ! $(PYTHON_UV) -m uv --version | grep -q "$(UV_VERSION)"; then \
+	@if ! $(PYTHON_UV) -m uv --version 2>/dev/null | grep -q "$(UV_VERSION)"; then \
 		echo "--- Installing/Updating UV to $(UV_VERSION) ---"; \
-		$(PYTHON_UV) -m pip install --upgrade pip; \
-		$(PYTHON_UV) -m pip install "uv==$(UV_VERSION)" \
+		$(PYTHON_UV) -m pip install --isolated -i https://pypi.org/simple --upgrade pip; \
+		$(PYTHON_UV) -m pip install --isolated -i https://pypi.org/simple "uv==$(UV_VERSION)"; \
 	else \
 		echo "--- UV $(UV_VERSION) already installed ---"; \
 	fi
@@ -39,6 +39,7 @@ precommit:
 	$(MAKE) pytest
 	$(MAKE) ruff
 	$(MAKE) mypy
+	$(MAKE) ty
 
 purge:
 	rm -rf $(VENV_UV) $(VENV) dist/ build/ *.egg-info
@@ -52,6 +53,10 @@ ruff:
 mypy:
 	$(MAKE) sync
 	$(PYTHON) -m mypy $(SRC) tests
+
+ty:
+	$(MAKE) sync
+	$(PYTHON) -m ty check $(SRC) tests
 
 pytest:
 	$(MAKE) sync
@@ -79,6 +84,11 @@ run-basic-example:
 
 # make run-example EXAMPLE=custom_parser
 run-example:
+	@if [ -z "$(EXAMPLE)" ]; then \
+		echo "Usage: make run-example EXAMPLE=<name>"; \
+		echo "Available examples: basic_example callbacks custom_parser input_generator retry_exhaustion stop_conditions timeouts"; \
+		exit 1; \
+	fi
 	$(MAKE) sync
 	PYTHONPATH=$(shell pwd)/src $(PYTHON) -m examples.$(EXAMPLE)
 

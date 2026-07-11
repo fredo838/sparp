@@ -1,7 +1,7 @@
 # run this example using `make run-example EXAMPLE=basic_example` from the root directory
 
 import aiohttp
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 import json
 
 
@@ -15,8 +15,8 @@ def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
 
 def main():
     requests = [{"method": "GET", "url": f"https://httpbin.org/get?item={i}"} for i in range(100)]
-    sparp = SPARP(requests, inspect_response=inspect_response, concurrency=20, show_progress_bar=True)
-    result = sparp.main()
+    sparp = SPARP(inspect_response=inspect_response, concurrency=20, show_progress_bar=True)
+    result = sparp.run(requests)
     for item in result.success:
         # ['args']['item'] are specific to httpbin.org/get
         print(f"data sent: {item['input']['url']}, data received: {json.loads(item['text'])['args']['item']}")

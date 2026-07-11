@@ -1,4 +1,4 @@
-from src.sparp.sparp import ResponseState
+from src.sparp import ResponseState
 import aiohttp
 from typing import Any, Generator, Dict
 

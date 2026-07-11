@@ -1,5 +1,5 @@
 import aiohttp
-from sparp.sparp import SPARP, ResponseState, StopConditions
+from sparp import SPARP, ResponseState, StopConditions
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -16,8 +16,8 @@ def main():
         {"method": "GET", "url": "https://httpbin.org/status/200"},  # Never reached
     ]
     cond = StopConditions(stop_on_hard_fail=True)
-    sparp = SPARP(requests, inspect_response=inspect_response, stop_conditions=cond, concurrency=1)
-    result = sparp.main()
+    sparp = SPARP(inspect_response=inspect_response, stop_conditions=cond, concurrency=1)
+    result = sparp.run(requests)
     print(f"Halted after {result.stats.success + result.stats.failed} total requests.")
     print(f"Success: {result.stats.success} | Failed: {result.stats.failed}")
 

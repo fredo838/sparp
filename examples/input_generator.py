@@ -1,6 +1,6 @@
 import aiohttp
 from typing import Generator, Dict, Any
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -17,18 +17,14 @@ def my_generator(count: int) -> Generator[Dict[str, Any], None, None]:
 
 
 def main():
-    # Use a generator instead of a list
-    gen = my_generator(100)
-
     sparp = SPARP(
-        input_collection=gen,
         inspect_response=inspect_response,
         concurrency=10,
         show_progress_bar=True,
         input_buffer_size=2,
     )
 
-    result = sparp.main()
+    result = sparp.run(my_generator(100))
     print(f"Processed {len(result.success)} items from generator.")
 
 

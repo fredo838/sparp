@@ -2,7 +2,7 @@
 
 import aiohttp
 from typing import Any, Dict
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -32,10 +32,10 @@ def main():
     # SPARP will run the custom_parser, but since the parser doesn't
     # await the body, it finishes as soon as headers are received.
     sparp = SPARP(
-        requests, inspect_response=inspect_response, parse_response=custom_parser, concurrency=2, show_progress_bar=True
+        inspect_response=inspect_response, parse_response_fn=custom_parser, concurrency=2, show_progress_bar=True
     )
 
-    result = sparp.main()
+    result = sparp.run(requests)
 
     for item in result.success:
         print(f"URL: {item['url']} | Server: {item['server']} | Date: {item['date']}")

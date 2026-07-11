@@ -2,7 +2,7 @@
 
 import aiohttp
 from typing import Any, Dict
-from sparp.sparp import SPARP, ResponseState, Callbacks
+from sparp import SPARP, ResponseState, Callbacks
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -27,8 +27,8 @@ def main():
         {"method": "GET", "url": "https://httpbin.org/status/404"},
     ]
     cb = Callbacks(on_success=on_success, on_hard_fail=on_fail)
-    sparp = SPARP(requests, inspect_response=inspect_response, callbacks=cb, concurrency=2)
-    result = sparp.main()
+    sparp = SPARP(inspect_response=inspect_response, callbacks=cb, concurrency=2)
+    result = sparp.run(requests)
     print(f"Final Stats: {result.stats.success} Success, {result.stats.failed} Failed")
 
 

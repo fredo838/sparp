@@ -1,5 +1,5 @@
 import aiohttp
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -11,8 +11,8 @@ def main():
     requests = [{"method": "GET", "url": "https://httpbin.org/get"}]
 
     # Try twice (initial + 1 retry) then give up
-    sparp = SPARP(requests, inspect_response=inspect_response, max_retries_by_soft_fail=1, concurrency=1)
-    result = sparp.main()
+    sparp = SPARP(inspect_response=inspect_response, max_retries_when_soft_fail=1, concurrency=1)
+    result = sparp.run(requests)
 
     # Access the items that reached the max retry limit
     for item in result.max_retries_soft_fail_reached:

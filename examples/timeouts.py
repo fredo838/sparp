@@ -1,5 +1,5 @@
 import aiohttp
-from sparp.sparp import SPARP, ResponseState
+from sparp import SPARP, ResponseState
 
 
 def inspect_response(response: aiohttp.ClientResponse) -> ResponseState:
@@ -15,8 +15,8 @@ def main():
     requests = [{"method": "GET", "url": "https://httpbin.org/delay/5"} for _ in range(3)]
 
     # We set a 1-second timeout. This will force timeout retries.
-    sparp = SPARP(requests, inspect_response=inspect_response, timeout_s=1.0, max_retries_by_timeout=2, concurrency=3)
-    result = sparp.main()
+    sparp = SPARP(inspect_response=inspect_response, timeout_s=1.0, max_retries_on_timeout=2, concurrency=3)
+    result = sparp.run(requests)
 
     print(f"Success: {result.stats.success}")
     print(f"Total Timeout Retries attempted: {result.stats.timeout_retries}")
