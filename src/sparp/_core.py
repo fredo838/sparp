@@ -43,6 +43,7 @@ class SPARP:
         timeout_s: float = 30.0,
         progress_bar_requests_threshold: int = 1,
         progress_bar_time_threshold: datetime.timedelta = datetime.timedelta(seconds=0.5),
+        ssl_verify: bool = True,
     ) -> None:
         """Initialises the SPARP engine with configuration."""
         if progress_bar_time_threshold.total_seconds() == 0:
@@ -60,6 +61,7 @@ class SPARP:
         self.timeout_s = timeout_s
         self.progress_bar_requests_threshold = progress_bar_requests_threshold
         self.progress_bar_time_threshold = progress_bar_time_threshold
+        self.ssl_verify = ssl_verify
 
         # Runtime state — populated by _main()
         self.input_collection: Iterable[dict[str, Any]] = []
@@ -233,7 +235,8 @@ class SPARP:
 
         try:
             timeout = aiohttp.ClientTimeout(total=self.timeout_s)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            connector = aiohttp.TCPConnector(ssl=self.ssl_verify)
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with asyncio.TaskGroup() as tg:
                     updater_task = tg.create_task(self._bar_updater())
                     tg.create_task(self._producer())

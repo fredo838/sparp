@@ -84,6 +84,7 @@ sparp = SPARP(
     timeout_s=30.0,                            # per-request timeout in seconds
     progress_bar_requests_threshold=1,         # min requests completed between bar redraws
     progress_bar_time_threshold=timedelta(seconds=0.5),  # min time between bar redraws
+    ssl_verify=True,                           # set False to disable TLS certificate verification (insecure)
 )
 ```
 

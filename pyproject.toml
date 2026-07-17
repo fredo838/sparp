@@ -37,7 +37,7 @@ include = ["sparp*"]
 line-length = 120
 
 [tool.mypy]
-mypy_path = "src"
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 addopts = "-ra"
