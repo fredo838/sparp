@@ -33,7 +33,8 @@ bootstrap-uv:
 sync: bootstrap-uv
 	$(UV) sync --all-extras --all-packages --all-groups --python $(PYTHONV)
 
-venv: $(MAKE) sync
+venv:
+	$(MAKE) sync
 
 precommit:
 	$(MAKE) pytest
